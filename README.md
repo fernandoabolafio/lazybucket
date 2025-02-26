@@ -11,9 +11,43 @@ A terminal UI for navigating and exploring Google Cloud Storage buckets, inspire
 
 ## Installation
 
+### Option 1: Using Go Install
+
 ```bash
 go install github.com/fernandoabolafio/lazybucket/cmd/lazybucket@latest
 ```
+
+### Option 2: Download Pre-built Binary
+
+You can download the pre-built binaries from the [GitHub Releases page](https://github.com/fernandoabolafio/lazybucket/releases).
+
+#### macOS
+
+```bash
+# For Intel Macs
+curl -L https://github.com/fernandoabolafio/lazybucket/releases/latest/download/lazybucket-darwin-amd64 -o lazybucket
+chmod +x lazybucket
+sudo mv lazybucket /usr/local/bin/
+
+# For Apple Silicon (M1/M2) Macs
+curl -L https://github.com/fernandoabolafio/lazybucket/releases/latest/download/lazybucket-darwin-arm64 -o lazybucket
+chmod +x lazybucket
+sudo mv lazybucket /usr/local/bin/
+```
+
+#### Linux
+
+```bash
+curl -L https://github.com/fernandoabolafio/lazybucket/releases/latest/download/lazybucket-linux-amd64 -o lazybucket
+chmod +x lazybucket
+sudo mv lazybucket /usr/local/bin/
+```
+
+#### Windows
+
+1. Download the [latest Windows release](https://github.com/fernandoabolafio/lazybucket/releases/latest/download/lazybucket-windows-amd64.exe)
+2. Rename it to `lazybucket.exe`
+3. Move it to a directory in your PATH
 
 ## Usage
 
