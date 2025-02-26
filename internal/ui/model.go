@@ -2,7 +2,10 @@ package ui
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -39,18 +42,45 @@ var (
 			BorderForeground(lipgloss.Color("#4A86CF")).
 			PaddingLeft(1).
 			PaddingRight(1)
+
+	detailsStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#4A86CF")).
+			Padding(1, 2).
+			Width(40)
+
+	detailsHeaderStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#FFFFFF")).
+				Background(lipgloss.Color("#4A86CF")).
+				Width(36).
+				Align(lipgloss.Center).
+				Padding(0, 1)
+
+	detailsLabelStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#4A86CF")).
+				Bold(true)
+
+	detailsValueStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#EEEEEE"))
+
+	copyMessageStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#00FF00")).
+				Render
 )
 
 // KeyMap defines the keybindings for the application
 type KeyMap struct {
-	Up      key.Binding
-	Down    key.Binding
-	Enter   key.Binding
-	Back    key.Binding
-	Quit    key.Binding
-	View    key.Binding
-	Help    key.Binding
-	Refresh key.Binding
+	Up       key.Binding
+	Down     key.Binding
+	Enter    key.Binding
+	Back     key.Binding
+	Quit     key.Binding
+	View     key.Binding
+	Help     key.Binding
+	Refresh  key.Binding
+	Download key.Binding
+	CopyURL  key.Binding
 }
 
 // DefaultKeyMap returns the default keybindings
@@ -88,12 +118,20 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("r"),
 			key.WithHelp("r", "refresh"),
 		),
+		Download: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "download file"),
+		),
+		CopyURL: key.NewBinding(
+			key.WithKeys("c"),
+			key.WithHelp("c", "copy gsutil URL"),
+		),
 	}
 }
 
 // ShortHelp returns keybindings to be shown in the mini help view
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Enter, k.Back, k.View, k.Help, k.Quit}
+	return []key.Binding{k.Up, k.Down, k.Enter, k.Back, k.View, k.Download, k.CopyURL, k.Help, k.Quit}
 }
 
 // FullHelp returns keybindings for the expanded help view
@@ -101,6 +139,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Enter},
 		{k.Back, k.View, k.Refresh},
+		{k.Download, k.CopyURL},
 		{k.Help, k.Quit},
 	}
 }
@@ -139,46 +178,61 @@ func (i ListItem) Description() string {
 
 // Model represents the application state
 type Model struct {
-	gcsClient    *gcs.Client
-	list         list.Model
-	help         help.Model
-	viewport     viewport.Model
-	keyMap       KeyMap
-	currentPath  string
-	pathHistory  []string
-	statusMsg    string
-	showHelp     bool
-	viewingFile  bool
-	fileContent  string
-	loadingItems bool
-	ready        bool
-	width        int
-	height       int
+	gcsClient        *gcs.Client
+	list             list.Model
+	help             help.Model
+	viewport         viewport.Model
+	keyMap           KeyMap
+	currentPath      string
+	pathHistory      []string
+	statusMsg        string
+	showHelp         bool
+	viewingFile      bool
+	fileContent      string
+	loadingItems     bool
+	ready            bool
+	width            int
+	height           int
+	showCopyMessage  bool
+	copyMessageTimer int
 }
 
-// New creates a new model
+// New creates a new UI model
 func New(gcsClient *gcs.Client) Model {
-	keyMap := DefaultKeyMap()
-	l := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
-	l.Title = "GBuckets"
-	l.SetShowHelp(false)
-	l.SetShowFilter(false)
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.DisableQuitKeybindings()
+	// Create list
+	delegate := list.NewDefaultDelegate()
+	listModel := list.New([]list.Item{}, delegate, 0, 0)
+	listModel.Title = "GBuckets"
+	listModel.SetShowHelp(false)
+	listModel.SetShowFilter(false)
+	listModel.SetShowStatusBar(false)
+	listModel.SetFilteringEnabled(false)
+	listModel.DisableQuitKeybindings()
 
+	// Create help
 	helpModel := help.New()
 	helpModel.ShowAll = false
 
+	// Create viewport for file viewing
+	viewportModel := viewport.New(0, 0)
+
+	// Create model
 	m := Model{
-		gcsClient:   gcsClient,
-		list:        l,
-		help:        helpModel,
-		keyMap:      keyMap,
-		currentPath: "",
-		pathHistory: []string{},
-		showHelp:    false,
-		viewingFile: false,
+		gcsClient:        gcsClient,
+		list:             listModel,
+		help:             helpModel,
+		viewport:         viewportModel,
+		keyMap:           DefaultKeyMap(),
+		currentPath:      "",
+		pathHistory:      []string{},
+		statusMsg:        "Loading...",
+		showHelp:         false,
+		viewingFile:      false,
+		fileContent:      "",
+		loadingItems:     true,
+		ready:            false,
+		showCopyMessage:  false,
+		copyMessageTimer: 0,
 	}
 
 	return m
@@ -259,7 +313,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			selected := m.list.SelectedItem().(ListItem)
+			// Check if the selected item is nil
+			selectedItem := m.list.SelectedItem()
+			if selectedItem == nil {
+				return m, nil
+			}
+
+			// Safely type assert with check
+			selected, ok := selectedItem.(ListItem)
+			if !ok {
+				return m, nil
+			}
+
 			if selected.item.IsDir {
 				m.statusMsg = fmt.Sprintf("Navigating to %s", selected.item.Name)
 				if selected.item.Name == ".." {
@@ -285,10 +350,68 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			selected := m.list.SelectedItem().(ListItem)
+			// Check if the selected item is nil
+			selectedItem := m.list.SelectedItem()
+			if selectedItem == nil {
+				return m, nil
+			}
+
+			// Safely type assert with check
+			selected, ok := selectedItem.(ListItem)
+			if !ok {
+				return m, nil
+			}
+
 			if !selected.item.IsDir {
 				m.statusMsg = fmt.Sprintf("Viewing %s", selected.item.Name)
 				return m, m.loadFile(selected.item)
+			}
+			return m, nil
+		case key.Matches(msg, m.keyMap.Download):
+			if len(m.list.Items()) == 0 {
+				return m, nil
+			}
+
+			// Check if the selected item is nil
+			selectedItem := m.list.SelectedItem()
+			if selectedItem == nil {
+				return m, nil
+			}
+
+			// Safely type assert with check
+			selected, ok := selectedItem.(ListItem)
+			if !ok {
+				return m, nil
+			}
+
+			if !selected.item.IsDir {
+				bucketName, objectName := gcs.ParsePath(selected.item.FullPath)
+				m.statusMsg = fmt.Sprintf("Downloading %s to current directory...", selected.item.Name)
+				return m, m.downloadFile(bucketName, objectName, selected.item.Name)
+			}
+			return m, nil
+		case key.Matches(msg, m.keyMap.CopyURL):
+			if len(m.list.Items()) == 0 {
+				return m, nil
+			}
+
+			// Check if the selected item is nil
+			selectedItem := m.list.SelectedItem()
+			if selectedItem == nil {
+				return m, nil
+			}
+
+			// Safely type assert with check
+			selected, ok := selectedItem.(ListItem)
+			if !ok {
+				return m, nil
+			}
+
+			if !selected.item.IsDir {
+				m.statusMsg = fmt.Sprintf("Copied gsutil URL for %s", selected.item.Name)
+				m.showCopyMessage = true
+				m.copyMessageTimer = 10 // Show message for 10 updates
+				return m, m.copyGsutilURL(selected.item.FullPath)
 			}
 			return m, nil
 		}
@@ -299,12 +422,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if !m.ready {
 			// Set up list and viewport when we first get a window size
-			m.list.SetSize(msg.Width, msg.Height-4) // Reserve space for title and help
+			listWidth := msg.Width / 2
+			if listWidth < 40 {
+				listWidth = msg.Width
+			}
+			m.list.SetSize(listWidth, msg.Height-4) // Reserve space for title and help
 			m.viewport = viewport.New(msg.Width-2, msg.Height-4)
 			m.viewport.Style = viewportStyle
 			m.ready = true
 		} else {
-			m.list.SetSize(msg.Width, msg.Height-4)
+			listWidth := msg.Width / 2
+			if listWidth < 40 {
+				listWidth = msg.Width
+			}
+			m.list.SetSize(listWidth, msg.Height-4)
 			m.viewport.Width = msg.Width - 2
 			m.viewport.Height = msg.Height - 4
 		}
@@ -335,6 +466,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusMsg = fmt.Sprintf("Error: %v", msg.err)
 
 		return m, nil
+
+	case copyDoneMsg:
+		// Handle copy done message
+		return m, tea.Tick(time.Second, func(t time.Time) tea.Msg {
+			return tickMsg{}
+		})
+
+	case tickMsg:
+		// Handle timer tick for copy message
+		if m.copyMessageTimer > 0 {
+			m.copyMessageTimer--
+			if m.copyMessageTimer == 0 {
+				m.showCopyMessage = false
+			}
+			return m, nil
+		}
+		return m, nil
+
+	case downloadDoneMsg:
+		m.statusMsg = fmt.Sprintf("Downloaded file to %s", msg.path)
+		return m, nil
 	}
 
 	// Handle list navigation
@@ -358,7 +510,6 @@ func (m Model) View() string {
 	if m.currentPath != "" {
 		pathInfo = m.currentPath
 	}
-
 	title := titleStyle.Render("GBuckets")
 	path := infoStyle.Copy().Width(m.width - lipgloss.Width(title) - 1).Render(pathInfo)
 	s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, title, path))
@@ -368,13 +519,24 @@ func (m Model) View() string {
 	if m.viewingFile {
 		s.WriteString(m.viewport.View())
 	} else {
-		s.WriteString(m.list.View())
+		// Split view with list on left and details on right if width allows
+		if m.width >= 80 {
+			listView := m.list.View()
+			detailsView := m.renderFileDetails()
+			s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, listView, detailsView))
+		} else {
+			s.WriteString(m.list.View())
+		}
 	}
 
 	s.WriteString("\n")
 
 	// Status message
-	s.WriteString(statusMessageStyle(m.statusMsg))
+	statusMsg := m.statusMsg
+	if m.showCopyMessage {
+		statusMsg = copyMessageStyle("URL copied to clipboard!")
+	}
+	s.WriteString(statusMessageStyle(statusMsg))
 
 	// Help
 	if m.showHelp {
@@ -386,6 +548,83 @@ func (m Model) View() string {
 	}
 
 	return s.String()
+}
+
+// renderFileDetails renders the file details panel
+func (m Model) renderFileDetails() string {
+	if len(m.list.Items()) == 0 {
+		return ""
+	}
+
+	// Check if the selected item is nil
+	selectedItem := m.list.SelectedItem()
+	if selectedItem == nil {
+		return ""
+	}
+
+	// Safely type assert with check
+	selected, ok := selectedItem.(ListItem)
+	if !ok {
+		return ""
+	}
+
+	if selected.item.IsDir {
+		return ""
+	}
+
+	var s strings.Builder
+	s.WriteString(detailsHeaderStyle.Render("File Details"))
+	s.WriteString("\n\n")
+
+	// File name
+	s.WriteString(detailsLabelStyle.Render("Name: "))
+	s.WriteString(detailsValueStyle.Render(selected.item.Name))
+	s.WriteString("\n\n")
+
+	// File size
+	s.WriteString(detailsLabelStyle.Render("Size: "))
+	s.WriteString(detailsValueStyle.Render(formatSize(selected.item.Size)))
+	s.WriteString("\n\n")
+
+	// Last modified
+	s.WriteString(detailsLabelStyle.Render("Last Modified: "))
+	s.WriteString(detailsValueStyle.Render(selected.item.Updated.Format("Jan 02, 2006 15:04:05")))
+	s.WriteString("\n\n")
+
+	// Full path
+	s.WriteString(detailsLabelStyle.Render("Full Path: "))
+	s.WriteString(detailsValueStyle.Render(selected.item.FullPath))
+	s.WriteString("\n\n")
+
+	// GsUtil URI
+	bucketName, objectName := gcs.ParsePath(selected.item.FullPath)
+	gsutilURI := fmt.Sprintf("gs://%s/%s", bucketName, objectName)
+	s.WriteString(detailsLabelStyle.Render("GsUtil URI: "))
+	s.WriteString(detailsValueStyle.Render(gsutilURI))
+	s.WriteString("\n\n")
+
+	// Actions
+	s.WriteString(detailsLabelStyle.Render("Actions:"))
+	s.WriteString("\n")
+	s.WriteString(detailsValueStyle.Render("Press 'd' to download"))
+	s.WriteString("\n")
+	s.WriteString(detailsValueStyle.Render("Press 'c' to copy gsutil URL"))
+
+	return detailsStyle.Render(s.String())
+}
+
+// formatSize formats the file size in a human-readable format
+func formatSize(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
 // loadFile loads the content of a file
@@ -400,6 +639,50 @@ func (m Model) loadFile(item gcs.Item) tea.Cmd {
 	}
 }
 
+// downloadFile downloads a file from GCS to the local filesystem
+func (m Model) downloadFile(bucketName, objectName, fileName string) tea.Cmd {
+	return func() tea.Msg {
+		// Create a temporary file
+		f, err := os.Create(fileName)
+		if err != nil {
+			return errMsg{err}
+		}
+		defer f.Close()
+
+		// Get the object content
+		content, err := m.gcsClient.GetObjectContent(bucketName, objectName)
+		if err != nil {
+			return errMsg{err}
+		}
+
+		// Write the content to the file
+		_, err = f.WriteString(content)
+		if err != nil {
+			return errMsg{err}
+		}
+
+		return downloadDoneMsg{path: fileName}
+	}
+}
+
+// copyGsutilURL copies the gsutil URL to the clipboard
+func (m Model) copyGsutilURL(fullPath string) tea.Cmd {
+	return func() tea.Msg {
+		bucketName, objectName := gcs.ParsePath(fullPath)
+		gsutilURI := fmt.Sprintf("gs://%s/%s", bucketName, objectName)
+
+		// Use the 'pbcopy' command on macOS to copy to clipboard
+		cmd := exec.Command("pbcopy")
+		cmd.Stdin = strings.NewReader(gsutilURI)
+		err := cmd.Run()
+		if err != nil {
+			return errMsg{err}
+		}
+
+		return copyDoneMsg{}
+	}
+}
+
 // Message types
 type itemsLoadedMsg struct {
 	items []gcs.Item
@@ -411,4 +694,12 @@ type fileLoadedMsg struct {
 
 type errMsg struct {
 	err error
+}
+
+type copyDoneMsg struct{}
+
+type tickMsg struct{}
+
+type downloadDoneMsg struct {
+	path string
 }

@@ -31,6 +31,17 @@ gbuckets
 gbuckets --project=your-project-id
 ```
 
+### Keyboard Shortcuts
+
+- `↑/k`: Move up
+- `↓/j`: Move down
+- `Enter`: Open directory
+- `Backspace/b`: Go back
+- `v`: View file content
+- `r`: Refresh
+- `?/h`: Toggle help
+- `q`: Quit
+
 ## Development
 
 ```bash
