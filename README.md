@@ -16,6 +16,10 @@ A terminal UI for navigating and exploring Google Cloud Storage buckets, inspire
 - View and interact with files
 - User-friendly interface with keyboard shortcuts
 
+## Demo
+
+https://github.com/user-attachments/assets/185b404c-7486-4f9d-addd-389f51dfb6e6
+
 ## Installation
 
 ### Option 1: Using Go Install
