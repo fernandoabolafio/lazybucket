@@ -3,8 +3,8 @@
 *.exe~
 *.dll
 *.so
-*.dylib
-lazybucket
+*.dylibj
+/lazybucket
 
 # Test binary, built with `go test -c`
 *.test
