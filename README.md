@@ -1,6 +1,13 @@
 # LazyBucket
 
+> 🪣 **Navigate Google Cloud Storage with style!** A sleek, keyboard-driven terminal UI that makes exploring GCS buckets as easy as browsing your local filesystem. No more clunky web console or complex gsutil commands.
+
 A terminal UI for navigating and exploring Google Cloud Storage buckets, inspired by lazygit.
+
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/fernandoabolafio/lazybucket)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/fernandoabolafio/lazybucket/ci.yml)
+![Go Version](https://img.shields.io/github/go-mod/go-version/fernandoabolafio/lazybucket)
+![License](https://img.shields.io/github/license/fernandoabolafio/lazybucket)
 
 ## Features
 
