@@ -1,4 +1,4 @@
-# GBuckets
+# LazyBucket
 
 A terminal UI for navigating and exploring Google Cloud Storage buckets, inspired by lazygit.
 
@@ -12,7 +12,7 @@ A terminal UI for navigating and exploring Google Cloud Storage buckets, inspire
 ## Installation
 
 ```bash
-go install github.com/fernandoabolafio/gbuckets/cmd/gbuckets@latest
+go install github.com/fernandoabolafio/lazybucket/cmd/lazybucket@latest
 ```
 
 ## Usage
@@ -25,10 +25,10 @@ gcloud auth application-default login
 export GOOGLE_CLOUD_PROJECT=your-project-id
 
 # Run the application
-gbuckets
+lazybucket
 
 # Alternatively, specify the project ID via command line flag
-gbuckets --project=your-project-id
+lazybucket --project=your-project-id
 ```
 
 ### Keyboard Shortcuts
@@ -46,13 +46,13 @@ gbuckets --project=your-project-id
 
 ```bash
 # Clone the repository
-git clone https://github.com/fernandoabolafio/gbuckets.git
-cd gbuckets
+git clone https://github.com/fernandoabolafio/lazybucket.git
+cd lazybucket
 
 # Build and run
-go build -o gbuckets ./cmd/gbuckets
+go build -o lazybucket ./cmd/lazybucket
 export GOOGLE_CLOUD_PROJECT=your-project-id
-./gbuckets
+./lazybucket
 ```
 
 ## Dependencies
@@ -64,7 +64,7 @@ export GOOGLE_CLOUD_PROJECT=your-project-id
 
 ## Authentication
 
-GBuckets uses Google Cloud application default credentials. Make sure you're authenticated:
+LazyBucket uses Google Cloud application default credentials. Make sure you're authenticated:
 
 ```bash
 gcloud auth application-default login

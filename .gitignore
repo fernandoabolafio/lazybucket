@@ -4,7 +4,7 @@
 *.dll
 *.so
 *.dylib
-gbuckets
+lazybucket
 
 # Test binary, built with `go test -c`
 *.test

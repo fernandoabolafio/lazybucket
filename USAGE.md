@@ -1,8 +1,8 @@
-# GBuckets Usage Guide
+# LazyBucket Usage Guide
 
 ## Prerequisites
 
-Before using GBuckets, make sure you have:
+Before using LazyBucket, make sure you have:
 
 1. Google Cloud SDK installed
 2. Authenticated with Google Cloud
@@ -19,21 +19,21 @@ gcloud auth application-default login
 export GOOGLE_CLOUD_PROJECT=your-project-id
 ```
 
-## Running GBuckets
+## Running LazyBucket
 
-You can run GBuckets in two ways:
+You can run LazyBucket in two ways:
 
 1. Using the environment variable (recommended):
 
 ```bash
 export GOOGLE_CLOUD_PROJECT=your-project-id
-./gbuckets
+./lazybucket
 ```
 
 2. Using the command line flag:
 
 ```bash
-./gbuckets --project=your-project-id
+./lazybucket --project=your-project-id
 ```
 
 ## Keyboard Shortcuts

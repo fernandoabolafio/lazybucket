@@ -1,4 +1,4 @@
-module github.com/fernandoabolafio/gbuckets
+module github.com/fernandoabolafio/lazybucket
 
 go 1.23.0
 

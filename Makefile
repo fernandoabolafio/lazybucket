@@ -2,11 +2,11 @@
 
 # Build the application
 build:
-	go build -o gbuckets ./cmd/gbuckets
+	go build -o lazybucket ./cmd/lazybucket
 
 # Run the application (requires GOOGLE_CLOUD_PROJECT environment variable)
 run: build
-	./gbuckets
+	./lazybucket
 
 # Run with a specific project ID
 run-with-project: build
@@ -14,11 +14,11 @@ run-with-project: build
 		echo "Error: PROJECT_ID is not set. Use: make run-with-project PROJECT_ID=your-project-id"; \
 		exit 1; \
 	fi
-	./gbuckets --project=$(PROJECT_ID)
+	./lazybucket --project=$(PROJECT_ID)
 
 # Clean build artifacts
 clean:
-	rm -f gbuckets
+	rm -f lazybucket
 
 # Run tests
 test:
@@ -26,14 +26,14 @@ test:
 
 # Install the application
 install:
-	go install ./cmd/gbuckets
+	go install ./cmd/lazybucket
 
 # Build for multiple platforms
 build-all:
-	GOOS=darwin GOARCH=amd64 go build -o gbuckets-darwin-amd64 ./cmd/gbuckets
-	GOOS=darwin GOARCH=arm64 go build -o gbuckets-darwin-arm64 ./cmd/gbuckets
-	GOOS=linux GOARCH=amd64 go build -o gbuckets-linux-amd64 ./cmd/gbuckets
-	GOOS=windows GOARCH=amd64 go build -o gbuckets-windows-amd64.exe ./cmd/gbuckets
+	GOOS=darwin GOARCH=amd64 go build -o lazybucket-darwin-amd64 ./cmd/lazybucket
+	GOOS=darwin GOARCH=arm64 go build -o lazybucket-darwin-arm64 ./cmd/lazybucket
+	GOOS=linux GOARCH=amd64 go build -o lazybucket-linux-amd64 ./cmd/lazybucket
+	GOOS=windows GOARCH=amd64 go build -o lazybucket-windows-amd64.exe ./cmd/lazybucket
 
 # Default target
 default: build 

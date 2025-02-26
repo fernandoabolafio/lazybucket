@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/fernandoabolafio/gbuckets/internal/gcs"
+	"github.com/fernandoabolafio/lazybucket/internal/gcs"
 )
 
 // Styling
@@ -202,7 +202,7 @@ func New(gcsClient *gcs.Client) Model {
 	// Create list
 	delegate := list.NewDefaultDelegate()
 	listModel := list.New([]list.Item{}, delegate, 0, 0)
-	listModel.Title = "GBuckets"
+	listModel.Title = "LazyBucket"
 	listModel.SetShowHelp(false)
 	listModel.SetShowFilter(false)
 	listModel.SetShowStatusBar(false)
@@ -510,7 +510,7 @@ func (m Model) View() string {
 	if m.currentPath != "" {
 		pathInfo = m.currentPath
 	}
-	title := titleStyle.Render("GBuckets")
+	title := titleStyle.Render("LazyBucket")
 	path := infoStyle.Copy().Width(m.width - lipgloss.Width(title) - 1).Render(pathInfo)
 	s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, title, path))
 	s.WriteString("\n\n")
